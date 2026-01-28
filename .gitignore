@@ -211,3 +211,6 @@ __marimo__/
 /.idea/modules.xml
 /.idea/PyGWater.iml
 /.idea/vcs.xml
+/data/LLN/
+/temp/
+/res/
