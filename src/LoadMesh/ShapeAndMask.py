@@ -118,7 +118,7 @@ class basin2grid_shp:
         return self
 
     def save2file(self, new_basin_name='new', out_dir='../temp'):
-        dp= Path(out_dir)/new_basin_name
+        dp = Path(out_dir) / new_basin_name
         if not dp.exists():
             dp.mkdir()
         self.new_shp.to_file(dp / ('%s.shp' % new_basin_name))
@@ -203,7 +203,70 @@ class basinMask:
         self.__shp = None
         pass
 
-    def configureBox(self, box: dir):
+    def load_shp(self, shp):
+        if isinstance(shp, str):
+            self.__shp = gpd.read_file(shp).to_crs(crs='epsg:4326')
+        else:
+            self.__shp = shp
+
+        return self
+
+    def shp_to_mask_global(self):
+        """
+        By default, the global mask is produced.
+        :return:
+        """
+        res = self._res
+        basin_name = self._basin_name
+
+        h5fn = str(self._save_dir / ('%s_res_%s_global.h5' % (basin_name, res)))
+        hf = h5py.File(h5fn, 'w')
+
+        mask_basin = {}
+        gdf = self.__shp
+
+        err = res / 10
+        lat = np.arange(90 - res / 2, -90 + res / 2 - err, -res)
+        lon = np.arange(-180 + res / 2, 180 - res / 2 + err, res)
+
+        lon, lat = np.meshgrid(lon, lat)
+
+        mask_all = np.zeros(np.shape(lat))
+        for id in np.arange(gdf.ID.size) + 1:
+            # if id !=3: continue
+            bd1 = gdf[gdf.ID == id]
+            mask1 = shapely.vectorized.touches(bd1.geometry.item(), lon, lat)
+            mask2 = shapely.vectorized.contains(bd1.geometry.item(), lon, lat)
+            mask3 = mask1 + mask2
+            # mask3=mask2
+            # print('Mask for %s' % bd1.ID.values[0])
+            mask_basin[bd1.ID.values[0]] = mask3
+            mask_all += mask3
+
+            hf.create_dataset('sub_basin_%s' % id, data=mask3.astype(int))
+            pass
+
+        hf.create_dataset('basin', data=mask_all.astype(int))
+        hf.create_dataset('lat', data=lat)
+        hf.create_dataset('lon', data=lon)
+        hf.create_dataset('resolution', data=res)
+        hf.close()
+
+        mask_basin[0] = mask_all.astype(bool)
+
+        return mask_basin, lat, lon
+
+    def shp_to_mask_crop(self, crop_box: dir = None):
+        """
+        By default, the global mask is produced. When the 'crop' chosen, the mask would be restricted to the specified box
+        region. If the crop region is not specified, then the area to be cropped will be automatically adjusted to the
+        box envelope of the given shape.
+        :return:
+        """
+
+        res = self._res
+
+        '''define the crop_box'''
         """
         box = {
         "lat": [
@@ -215,52 +278,29 @@ class basinMask:
             154.3
         ]}
         """
-        if box is None:
-            return self
+        if crop_box is None:
+            bb = self.__shp.total_bounds
+            crop_box = {
+                "lat": [
+                    bb[3],
+                    bb[1]
+                ],
+                "lon": [
+                    bb[0],
+                    bb[2]
+                ]}
+            pass
 
-        res = self._res
-        err = res / 10
-        lat = np.arange(90 - res / 2, -90 + res / 2 - err, -res)
-        lon = np.arange(-180 + res / 2, 180 - res / 2 + err, res)
+        lat, lon, box_id = self._crop_box(crop_box=crop_box)
 
-        lati = [np.argmin(np.fabs(lat - max(box['lat']))),
-                np.argmin(np.fabs(lat - min(box['lat'])))]
-        loni = [np.argmin(np.fabs(lon - min(box['lon']))),
-                np.argmin(np.fabs(lon - max(box['lon'])))]
-        id = [lati[0], lati[1] + 1, loni[0], loni[1] + 1]
-
-        lon, lat = np.meshgrid(lon, lat)
-        mask = np.zeros(np.shape(lon))
-
-        mask[id[0]:id[1], id[2]:id[3]] = 1
-
-        self.box_mask = mask
-
-        return self
-
-    def load_shp(self, shp):
-        if isinstance(shp, str):
-            self.__shp = gpd.read_file(shp).to_crs(crs='epsg:4326')
-        else:
-            self.__shp = shp
-
-        return self
-
-    def shp_to_mask(self):
-        res = self._res
+        '''this is to handle the shape file'''
         basin_name = self._basin_name
 
-        h5fn = str(self._save_dir / ('%s_res_%s.h5' % (basin_name, res)))
+        h5fn = str(self._save_dir / ('%s_res_%s_crop.h5' % (basin_name, res)))
         hf = h5py.File(h5fn, 'w')
 
         mask_basin = {}
         gdf = self.__shp
-
-        err = res / 10
-        lat = np.arange(90 - res / 2, -90 + res / 2 - err, -res)
-        lon = np.arange(-180 + res / 2, 180 - res / 2 + err, res)
-
-        lon, lat = np.meshgrid(lon, lat)
 
         mask_all = np.zeros(np.shape(lat))
         for id in np.arange(gdf.ID.size) + 1:
@@ -284,11 +324,34 @@ class basinMask:
         hf.create_dataset('lat', data=lat)
         hf.create_dataset('lon', data=lon)
         hf.create_dataset('resolution', data=res)
+        hf.create_dataset('mask2global_id', data=np.array(box_id))
         hf.close()
 
         mask_basin[0] = mask_all.astype(bool)
 
         return mask_basin, lat, lon
+
+    def _crop_box(self, crop_box: dir):
+        res = self._res
+        err = res / 10
+        lat = np.arange(90 - res / 2, -90 + res / 2 - err, -res)
+        lon = np.arange(-180 + res / 2, 180 - res / 2 + err, res)
+
+        lati = [np.argmin(np.fabs(lat - max(crop_box['lat']))),
+                np.argmin(np.fabs(lat - min(crop_box['lat'])))]
+        loni = [np.argmin(np.fabs(lon - min(crop_box['lon']))),
+                np.argmin(np.fabs(lon - max(crop_box['lon'])))]
+        box_mask_id = [lati[0], lati[1] + 1, loni[0], loni[1] + 1]
+
+        lon, lat = np.meshgrid(lon, lat)
+        # box_mask = np.zeros(np.shape(lon))
+        #
+        # box_mask[box_mask_id[0]:box_mask_id[1], box_mask_id[2]:box_mask_id[3]] = 1
+
+        lon = lon[box_mask_id[0]:box_mask_id[1], box_mask_id[2]:box_mask_id[3]]
+        lat = lat[box_mask_id[0]:box_mask_id[1], box_mask_id[2]:box_mask_id[3]]
+
+        return lat, lon, box_mask_id
 
 
 class getMask_flow:
@@ -325,25 +388,28 @@ class getMask_flow:
         bg.save2file(new_basin_name=self.__new_basin_name, out_dir='../../res/shp')
         return self
 
-    def shp2mask(self):
+    def shp2mask(self, is_crop=False):
         bm = basinMask(mask_res=self.small_cell, new_mask_name=self.__new_basin_name, save_dir='../../res/mask')
+        bm.load_shp(shp=self.shp)
 
-        self.mask, self.lat, self.lon = bm.load_shp(shp=self.shp).shp_to_mask()
+        if is_crop:
+            self.mask, self.lat, self.lon = bm.shp_to_mask_crop(crop_box=None)
+        else:
+            self.mask, self.lat, self.lon = bm.shp_to_mask_global()
 
         pass
-
 
 
 def demo1():
     gmf = getMask_flow(basin_name='exp', coarse_cell=3, small_cell=0.5, is_ocean_removed=True)
 
-    gmf.getShp(box_area=(71.6, 36.1, -11.1, 42.1)).shp2mask()
+    gmf.getShp(box_area=(71.6, 36.1, -11.1, 42.1)).shp2mask(is_crop=True)
     pass
 
 
 def demo_visualization():
     box_area = (71.6, 36.1, -11.1, 42.1)
-    gdf =gpd.read_file(filename='/home/user/codes/PyGWater/res/shp/exp/exp.shp')
+    gdf = gpd.read_file(filename='/home/user/codes/PyGWater/res/shp/exp/exp.shp')
 
     import pygmt
 
@@ -357,21 +423,19 @@ def demo_visualization():
     fig.basemap(region=region, projection=pj,
                 frame=['WSne', 'xa10f5+lLongitude (\\260 E)', 'ya5f5+lLatitude (\\260 N)'])
 
-
     # fig.show()
 
     '''mask visualization'''
-    h5 = h5py.File('/home/user/codes/PyGWater/res/mask/exp_res_0.5.h5','r')
+    h5 = h5py.File('/home/user/codes/PyGWater/res/mask/exp_res_0.5_crop.h5', 'r')
     lat = h5['lat'][:]
     lon = h5['lon'][:]
-    mask =h5['basin'][:]
+    mask = h5['basin'][:]
     res = h5['resolution'][()].item()
-
-
+    # box_id = h5['mask2global_id'][:]
 
     # mask = h5['sub_basin_23'][:]
     pygmt.makecpt(cmap='polar', series=[-1, 1], background='o')
-    data_region = [min(lon[0]), max(lon[0]), min(lat[:,0]), max(lat[:,0])]
+    data_region = [min(lon[0]), max(lon[0]), min(lat[:, 0]), max(lat[:, 0])]
 
     ee = pygmt.xyz2grd(y=lat.flatten(), x=lon.flatten(), z=mask.flatten(),
                        spacing=(res, res), region=data_region)
