@@ -1,0 +1,11 @@
+numpy>=1.24
+scipy>=1.10
+h5py>=3.8
+netCDF4>=1.6
+# regional masks (src_LoadMesh)
+geopandas>=0.13
+shapely>=2.0
+# tests
+pytest>=7
+# figures in src_demo/ (optional)
+# pygmt
