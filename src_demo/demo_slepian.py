@@ -10,20 +10,23 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 CODE_ROOT = HERE.parent
 sys.path.insert(0, str(CODE_ROOT))   # run from any folder: the src_* packages import from the code root
-os.chdir(HERE)                       # relative paths in this script ('../res', '../temp') refer to src_demo/
+os.chdir(HERE)
+
+from src_auxiliary.FileTool import FileTool
+RES = str(FileTool.get_res_dir()) + '/'     # <data root>/res/  (data root: PYGWATER_DATA)
+TEMP = str(FileTool.get_temp_dir()) + '/'   # <data root>/temp/
 import h5py
 import numpy as np
 
 import src_auxiliary.EnumClasses as Enums
-from src_auxiliary.FileTool import FileTool
 from src_auxiliary.GeoMathKit import GeoMathKit
 from src_EarthModel.LoveNumber import LoveNumber
 from src_Basis.Slepian.Slepian import SlepianBasis
 from src_Basis.SphericalHarmonic.DataClass import GRID
 
 
-def demo_region(mask_file=FileTool.get_project_dir('res/mask/EU_res_0.5_crop.h5'),
-                load_file=FileTool.get_project_dir('temp/mascon.txt'), L=60):
+def demo_region(mask_file=FileTool.get_res_dir('mask/EU_res_0.5_crop.h5'),
+                load_file=FileTool.get_temp_dir('mascon.txt'), L=60):
     lln = LoveNumber().config(lmax=L, method=Enums.LLN_Data.PREM).get_Love_number()
 
     '''Slepian basis of the region'''

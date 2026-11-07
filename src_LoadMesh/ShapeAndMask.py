@@ -121,7 +121,7 @@ class basin2grid_shp:
 
     def save2file(self, new_basin_name='new', out_dir=None):
         """:param out_dir: default <project>/res/shp"""
-        out_dir = FileTool.get_project_dir('res/shp') if out_dir is None else out_dir
+        out_dir = FileTool.get_res_dir('shp') if out_dir is None else out_dir
         dp = Path(out_dir) / new_basin_name
         dp.mkdir(parents=True, exist_ok=True)
         self.new_shp.to_file(dp / ('%s.shp' % new_basin_name))
@@ -201,7 +201,7 @@ class basinMask:
         """:param save_dir: folder for the mask files; default <project>/res/mask"""
         self._res = mask_resolution
         self._basin_name = new_mask_name
-        self._save_dir = FileTool.get_project_dir('res/mask') if save_dir is None else Path(save_dir)
+        self._save_dir = FileTool.get_res_dir('mask') if save_dir is None else Path(save_dir)
         self._save_dir.mkdir(parents=True, exist_ok=True)
 
         self.box_mask = None
@@ -390,12 +390,12 @@ class getMask_flow:
             bg.delete_ocean_grid()
 
         self.shp = bg.new_shp
-        bg.save2file(new_basin_name=self.__new_basin_name, out_dir=FileTool.get_project_dir('res/shp'))
+        bg.save2file(new_basin_name=self.__new_basin_name, out_dir=FileTool.get_res_dir('shp'))
         return self
 
     def shp2mask(self, is_crop=False):
         bm = basinMask(mask_resolution=self.small_cell, new_mask_name=self.__new_basin_name,
-                       save_dir=FileTool.get_project_dir('res/mask'))
+                       save_dir=FileTool.get_res_dir('mask'))
         bm.load_shp(shp=self.shp)
 
         if is_crop:
@@ -415,7 +415,7 @@ def demo1():
 def demo2():
 
     bm = basinMask(mask_resolution=1, new_mask_name='EU')
-    bm.load_shp(shp = str(FileTool.get_project_dir('res/shp/EU/EU.shp')))
+    bm.load_shp(shp = str(FileTool.get_res_dir('shp/EU/EU.shp')))
     bm.shp_to_mask_crop(crop_box={
         "lat": [
             71.6,
@@ -429,7 +429,7 @@ def demo2():
 
 def demo_visualization():
     box_area = (71.6, 36.1, -11.1, 42.1)
-    gdf = gpd.read_file(filename=str(FileTool.get_project_dir('res/shp/EU/EU.shp')))
+    gdf = gpd.read_file(filename=str(FileTool.get_res_dir('shp/EU/EU.shp')))
 
     import pygmt
 
@@ -446,7 +446,7 @@ def demo_visualization():
     # fig.show()
 
     '''mask visualization'''
-    h5 = h5py.File(str(FileTool.get_project_dir('res/mask/EU_res_1_crop.h5')), 'r')
+    h5 = h5py.File(str(FileTool.get_res_dir('mask/EU_res_1_crop.h5')), 'r')
     lat = h5['lat'][:]
     lon = h5['lon'][:]
     mask = h5['basin'][:]

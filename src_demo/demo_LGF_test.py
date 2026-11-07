@@ -5,13 +5,16 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 CODE_ROOT = HERE.parent
 sys.path.insert(0, str(CODE_ROOT))   # run from any folder: the src_* packages import from the code root
-os.chdir(HERE)                       # relative paths in this script ('../res', '../temp') refer to src_demo/
+os.chdir(HERE)
+
+from src_auxiliary.FileTool import FileTool
+RES = str(FileTool.get_res_dir()) + '/'     # <data root>/res/  (data root: PYGWATER_DATA)
+TEMP = str(FileTool.get_temp_dir()) + '/'   # <data root>/temp/
 import pygmt
 import numpy as np
 from src_EarthModel.LoveNumber import LoveNumber, LLN_Data, LLN_variable, Frame
 from src_Basis.GreenFunction.PointLoad import LGF_Kummer, EarthConstant, LGF_truncation
 from src_Basis.GreenFunction.DiskLoad import DiskLoad, EarthConstant
-from src_auxiliary.FileTool import FileTool
 
 
 def compare():

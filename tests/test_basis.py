@@ -86,11 +86,15 @@ def test_disk_basis_equals_convolution(load):
     lln = LoveNumber().config(lmax=2000, method=LLN_Data.PREM).get_Love_number()
     lo2, la2 = np.meshgrid(lon, lat)
     mask = ewh > 0
-    gf = GreenFunctionBasis.from_grid(lat, lon, RES, mask=mask, kernel='disk', check_lmax=False)
+    gf = GreenFunctionBasis.from_grid(lat, lon, RES, mask=mask, kernel='disk', check_lmax=False, tabulate=False)
     x = gf.load_parameters(ewh, lat, lon)
     grids = {'lat': la2[mask], 'lon': lo2[mask], 'radius': gf.radius, 'EWH': ewh[mask][:, None]}
-    ref = Disk.GFA_displacement(lln).configure(grids).evaluation({'lat': STA_LAT, 'lon': STA_LON})[:, 0]
-    np.testing.assert_allclose(gf.predict(x, STA_LAT, STA_LON, lln), ref, rtol=1e-10)
+    pts = {'lat': STA_LAT, 'lon': STA_LON}
+    for v in (Displacement.Vertical, Displacement.North, Displacement.East):
+        ref = Disk.GFA_displacement(lln).configure(grids).evaluation(pts, v)[:, 0]
+        np.testing.assert_allclose(gf.predict(x, STA_LAT, STA_LON, lln, v), ref, rtol=1e-10)
+        tab = GreenFunctionBasis.from_grid(lat, lon, RES, mask=mask, kernel='disk', check_lmax=False)  # tabulated
+        assert np.abs(tab.predict(x, STA_LAT, STA_LON, lln, v) - ref).max() < 1e-4 * np.abs(ref).max()
 
 
 def test_forward_model_bases_agree(lln, load):

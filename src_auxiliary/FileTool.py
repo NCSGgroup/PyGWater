@@ -26,8 +26,9 @@ class FileTool:
     @staticmethod
     def get_data_dir(sub=None):
         """
-        Data root (Love numbers in LLN/, land mask in land_mask/): the environment variable PYGWATER_DATA if set,
-        otherwise <project>/data (cf. PYGLDA_DATA in PyGLDA v2).
+        External data root, kept outside the code (cf. PyGLDA_v2_external_data): the environment variable
+        PYGWATER_DATA if set, otherwise <project>/data. It holds the inputs (LLN/, land_mask/) and the files written
+        at run time (res/ for results, temp/ for scratch), see get_res_dir / get_temp_dir.
         """
         import os
         root = os.environ.get('PYGWATER_DATA')
@@ -35,6 +36,16 @@ class FileTool:
         if sub is not None:
             result /= sub
         return result
+
+    @staticmethod
+    def get_res_dir(sub=None):
+        """results written by PyGWater (templates, masks, shapefiles, figures data): <data root>/res"""
+        return FileTool.get_data_dir('res') if sub is None else FileTool.get_data_dir('res') / sub
+
+    @staticmethod
+    def get_temp_dir(sub=None):
+        """scratch files: <data root>/temp"""
+        return FileTool.get_data_dir('temp') if sub is None else FileTool.get_data_dir('temp') / sub
 
     @staticmethod
     def get_files_in_dir(fp, sub=False):

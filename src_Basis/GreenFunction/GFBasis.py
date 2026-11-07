@@ -43,7 +43,7 @@ class GreenFunctionBasis(Basis):
     name = 'green_function'
 
     def __init__(self, lat, lon, kernel='point_mass', area=None, radius=None, resolution=None, subgrid=None,
-                 check_lmax=True):
+                 check_lmax=True, tabulate=True):
         """
         :param lat, lon: cell centres [degree], 1d arrays (n_cell,)
         :param kernel: 'point_mass', 'disk' or 'cluster_disk'
@@ -55,6 +55,9 @@ class GreenFunctionBasis(Basis):
         :param subgrid: sub-cell size [degree] of cluster_disk (e.g. 0.1; 0.1-0.2 recommended by Yang et al., 2025);
                         resolution / subgrid must be an integer
         :param check_lmax: warn if the Love numbers are too short for the disk radius (Eq. 24)
+        :param tabulate: disk kernel only: True (default) evaluates the D-LGF from a DiskLoadTable (one Legendre
+                         series per distinct radius, interpolated, ~1e-5 of the peak; fast for many cells); False
+                         evaluates the series of DiskLoad directly at every point (exact, slow for large N)
         """
         self.lat = np.atleast_1d(np.asarray(lat, dtype=float))
         self.lon = np.atleast_1d(np.asarray(lon, dtype=float))
@@ -81,6 +84,7 @@ class GreenFunctionBasis(Basis):
             self.radius = np.broadcast_to(np.asarray(radius, dtype=float), self.lat.shape).copy()
         self.resolution = resolution
         self.check_lmax = check_lmax
+        self.tabulate = tabulate
         self._cache = {}  # Love-number object -> kernel objects
         self._tree = None
 
@@ -126,6 +130,9 @@ class GreenFunctionBasis(Basis):
         if key not in self._cache:
             if self.kernel == 'point_mass':
                 self._cache = {key: LGF_truncation(lln=lln)}
+            elif self.kernel == 'disk' and self.tabulate:
+                self._cache = {key: DiskLoadTable(lln, np.unique(self.radius), thickness=1,
+                                                  check_lmax=self.check_lmax)}
             elif self.kernel == 'disk':
                 self._cache = {key: {r: DiskLoad(lln=lln, radius=r, thickness=1, check_lmax=self.check_lmax)
                                      for r in np.unique(self.radius)}}
@@ -136,24 +143,31 @@ class GreenFunctionBasis(Basis):
                 self._cache = {key: DiskLoadTable(lln, radii, thickness=1, check_lmax=self.check_lmax)}
         return self._cache[key]
 
+    @staticmethod
+    def _table_response(T, dlat, dlon, radius, lat, lon, variable):
+        """response at the points (N,) of disks of one radius centred at (dlat, dlon) (M,), from a table: (M, N)"""
+        kind = {Displacement.Vertical: 'vertical', Displacement.Geoheight: 'geoid', Displacement.Horizontal:
+                'horizontal', Displacement.North: 'horizontal', Displacement.East: 'horizontal'}.get(variable)
+        if kind is None:
+            raise NotImplementedError('disk kernels support Vertical, North, East, Horizontal and Geoheight (got %s); '
+                                      'surface gravity is not available for disk kernels' % variable)
+        dla, dlo = np.atleast_1d(dlat)[:, None], np.atleast_1d(dlon)[:, None]
+        psi = GeoMathKit.angular_distance(dla, dlo, lat[None, :], lon[None, :])
+        K = T.evaluate(kind, radius, psi)
+        if variable in (Displacement.North, Displacement.East):
+            un, ue = GeoMathKit.horizontal_to_north_east(K, dla, dlo, lat[None, :], lon[None, :])
+            K = un if variable == Displacement.North else ue
+        return K
+
     def _cluster_column(self, T, j, lat, lon, variable):
         """response of cell j (sum of its sub-disks) at the points"""
-        kind = {Displacement.Vertical: 'vertical', Displacement.Geoheight: 'geoid',
-                Displacement.North: 'horizontal', Displacement.East: 'horizontal'}.get(variable)
-        if kind is None:
-            raise NotImplementedError('cluster_disk supports Vertical, North, East and Geoheight (got %s); surface '
-                                      'gravity is not available for disk kernels, and the great-circle Horizontal '
-                                      'component is not defined for a cluster' % variable)
+        if variable == Displacement.Horizontal:
+            raise NotImplementedError('the great-circle Horizontal component is not defined for a cluster; '
+                                      'use North and East')
         la2, lo2, r2 = self.sub_cells(j)
         col = np.zeros(lat.size)
         for row in range(la2.shape[0]):  # one sub-cell row shares one radius
-            sla, slo = la2[row][:, None], lo2[row][:, None]
-            psi = GeoMathKit.angular_distance(sla, slo, lat[None, :], lon[None, :])
-            K = T.evaluate(kind, r2[row, 0], psi)
-            if variable in (Displacement.North, Displacement.East):
-                un, ue = GeoMathKit.horizontal_to_north_east(K, sla, slo, lat[None, :], lon[None, :])
-                K = un if variable == Displacement.North else ue
-            col += K.sum(axis=0)
+            col += self._table_response(T, la2[row], lo2[row], r2[row, 0], lat, lon, variable).sum(axis=0)
         return col
 
     def design_matrix(self, lat, lon, lln, variable=Displacement.Vertical, **kwargs):
@@ -168,6 +182,9 @@ class GreenFunctionBasis(Basis):
         for j in range(self.n_param):
             if self.kernel == 'cluster_disk':
                 A[:, j] = self._cluster_column(K, j, lat, lon, variable)
+                continue
+            if self.kernel == 'disk' and self.tabulate:
+                A[:, j] = self._table_response(K, self.lat[j], self.lon[j], self.radius[j], lat, lon, variable)[0]
                 continue
             if self.kernel == 'point_mass':
                 obj, scale = K, EarthConstant.rhow * self.area[j]

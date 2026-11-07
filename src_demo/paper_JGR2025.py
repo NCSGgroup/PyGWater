@@ -5,7 +5,11 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 CODE_ROOT = HERE.parent
 sys.path.insert(0, str(CODE_ROOT))   # run from any folder: the src_* packages import from the code root
-os.chdir(HERE)                       # relative paths in this script ('../res', '../temp') refer to src_demo/
+os.chdir(HERE)
+
+from src_auxiliary.FileTool import FileTool
+RES = str(FileTool.get_res_dir()) + '/'     # <data root>/res/  (data root: PYGWATER_DATA)
+TEMP = str(FileTool.get_temp_dir()) + '/'   # <data root>/temp/
 
 
 import pygmt
@@ -206,7 +210,7 @@ def fig2_prepare():
     disp = sh.synthesis(grid_space=res, from_type=Enums.PhysicalDimensions.EWH,
                         to_type=Enums.PhysicalDimensions.VerticalDisplacement)
     disp = disp.value
-    np.save('../res/fig2/SH.npy', disp)
+    np.save(RES + 'fig2/SH.npy', disp)
 
     '''Green function: N=180'''
     mascon_data = mascon_data.reshape((1, -1)).T
@@ -229,7 +233,7 @@ def fig2_prepare():
 
     dist = gfa.evaluation(points=point, variable=Displacement.Vertical, resolution=res)
 
-    np.save('../res/fig2/Green360.npy', dist)
+    np.save(RES + 'fig2/Green360.npy', dist)
 
     pass
 
@@ -241,7 +245,7 @@ def fig2():
     lon, lat = np.meshgrid(lon, lat)
 
     '''SH'''
-    SH1 = np.load('../res/fig2/SH.npy') * 1000
+    SH1 = np.load(RES + 'fig2/SH.npy') * 1000
 
     fig = pygmt.Figure()
     pygmt.config(MAP_HEADING_OFFSET=0, MAP_TITLE_OFFSET=-0.1)
@@ -270,7 +274,7 @@ def fig2():
     fig.colorbar(position="JBC+w8.5c/0.25c+h+o-1.2c/0.6c", frame=['xa20f', 'yf+luplift (mm)'])
 
     '''Green N=90'''
-    Green = np.load('../res/fig2/Green90.npy') * 1000
+    Green = np.load(RES + 'fig2/Green90.npy') * 1000
 
     SH = Green.flatten() - SH1.flatten()
     fig.shift_origin(xshift='13c')
@@ -299,7 +303,7 @@ def fig2():
     fig.colorbar(position="JBC+w8.5c/0.25c+h+o-1.2c/0.6c", frame=['xa1f', 'yf+luplift (mm)'])
 
     '''Green N=180'''
-    Green = np.load('../res/fig2/Green180.npy') * 1000
+    Green = np.load(RES + 'fig2/Green180.npy') * 1000
 
     SH = Green.flatten() - SH1.flatten()
     fig.shift_origin(xshift='-13c', yshift='-9c')
@@ -328,7 +332,7 @@ def fig2():
     fig.colorbar(position="JBC+w8.5c/0.25c+h+o-1.2c/0.6c", frame=['xa5f', 'yf+luplift (mm)'])
 
     '''Green N=180'''
-    Green = np.load('../res/fig2/Green360.npy') * 1000
+    Green = np.load(RES + 'fig2/Green360.npy') * 1000
 
     SH = Green.flatten() - SH1.flatten()
     fig.shift_origin(xshift='13c')
@@ -534,9 +538,9 @@ def fig3():
 def fig7():
     from src_Basis.SphericalHarmonic.DataClass import GRID, Enums
 
-    sh = np.load('../res/fig2/SH.npy') * 1000
-    shen = np.loadtxt('../temp/loadvcd.txt', skiprows=1, usecols=2)
-    # shen = np.load('../temp/cluster_disk.npy') * 1000
+    sh = np.load(RES + 'fig2/SH.npy') * 1000
+    shen = np.loadtxt(TEMP + 'loadvcd.txt', skiprows=1, usecols=2)
+    # shen = np.load(TEMP + 'cluster_disk.npy') * 1000
 
     res = 2
     lat, lon = GeoMathKit.global_equal_distance_grid(grid_size=res)
@@ -689,7 +693,7 @@ def fig8_prepare():
 
     # sn = np.array([lat.flatten(),lon.flatten(),mascon_data.flatten()])
     #
-    # np.savetxt('../temp/mascon.txt', sn.T)
+    # np.savetxt(TEMP + 'mascon.txt', sn.T)
 
     grids = Grids_generation.Equal_angular_distance(resolution=res)
 
@@ -704,18 +708,18 @@ def fig8_prepare():
 
     dist = gfa.evaluation(points=point, variable=Displacement.Vertical, resolution=res)
 
-    # np.save('../res/fig8/degree2.npy', dist)
-    np.save('../res/fig8/degree1.npy', dist)
+    # np.save(RES + 'fig8/degree2.npy', dist)
+    np.save(RES + 'fig8/degree1.npy', dist)
 
     pass
 
 
 def fig8():
-    # shen = np.loadtxt('../temp/loadvcd.txt', skiprows=1, usecols=2)
-    # shen = np.load('../res/fig8/degree2.npy') * 1000
+    # shen = np.loadtxt(TEMP + 'loadvcd.txt', skiprows=1, usecols=2)
+    # shen = np.load(RES + 'fig8/degree2.npy') * 1000
 
     """(a)"""
-    shen = np.load('../res/fig8/degree1.npy') * 1000
+    shen = np.load(RES + 'fig8/degree1.npy') * 1000
     res = 1
     lat, lon = GeoMathKit.global_equal_distance_grid(grid_size=res)
     region = [min(lon), max(lon), min(lat), max(lat)]
@@ -748,7 +752,7 @@ def fig8():
     fig.colorbar(position="JBC+w8.5c/0.25c+h+o-1.2c/0.6c", frame=['xaf', 'yf+luplift (mm)'])
 
     """(b)"""
-    shen = np.load('../res/fig8/degree2.npy') * 1000
+    shen = np.load(RES + 'fig8/degree2.npy') * 1000
     res = 2
     lat, lon = GeoMathKit.global_equal_distance_grid(grid_size=res)
     region = [min(lon), max(lon), min(lat), max(lat)]
@@ -925,9 +929,9 @@ def fig9():
 
 
 def fig10():
-    sh = np.load('../temp/sh2.npy')
-    green = np.load('../temp/100_dis_fast.npy') * 1000
-    shen = np.loadtxt('../temp/loadvcd.txt', skiprows=1, usecols=2)
+    sh = np.load(TEMP + 'sh2.npy')
+    green = np.load(TEMP + '100_dis_fast.npy') * 1000
+    shen = np.loadtxt(TEMP + 'loadvcd.txt', skiprows=1, usecols=2)
 
     res = 2
     lat, lon = GeoMathKit.global_equal_distance_grid(grid_size=res)
@@ -1044,7 +1048,7 @@ def fig11_prepare():
             u = load.getVertical()
             data.append(u)
 
-        np.save('../res/fig11/far_%s.npy' % radius, np.array(data))
+        np.save(RES + 'fig11/far_%s.npy' % radius, np.array(data))
 
         K = 0.1
         theta = K * radius
@@ -1055,7 +1059,7 @@ def fig11_prepare():
             u = load.getVertical()
             data.append(u)
 
-        np.save('../res/fig11/near_%s.npy' % radius, np.array(data))
+        np.save(RES + 'fig11/near_%s.npy' % radius, np.array(data))
 
     pass
 
@@ -1091,7 +1095,7 @@ def fig11():
     for radius in radius_list:
         n += 1
         # radius =0.1
-        ypoints = np.load('../res/fig11/near_%s.npy' % radius) * 1000
+        ypoints = np.load(RES + 'fig11/near_%s.npy' % radius) * 1000
         xpoints = lmax_list
 
         if radius == 3.0:
@@ -1140,7 +1144,7 @@ def fig11():
         fig.plot(x=[10000, 10000], y=[-200, 200], pen='1p,Black,--')
 
         fig.shift_origin(xshift='9.2c')
-        ypoints = np.load('../res/fig11/far_%s.npy' % radius) * 1000
+        ypoints = np.load(RES + 'fig11/far_%s.npy' % radius) * 1000
         xpoints = lmax_list
 
         if radius == 3.0:
@@ -1209,10 +1213,10 @@ def fig14():
     lat1 = lat0 * np.ones(1000)
     lon1 = lon0 + np.linspace(start=0.0001, stop=10, num=1000)
     X_angle1 = GeoMathKit.angular_distance(lat0, lon0, lat1, lon1)
-    CD1 = np.load('../res/fig14/LGD_fig14_res_0.05.npy') * 1000
-    CD2 = np.load('../res/fig14/LGD_fig14_res_0.1.npy') * 1000
-    CD3 = np.load('../res/fig14/LGD_fig14_res_0.2.npy') * 1000
-    CD4 = np.load('../res/fig14/LGD_fig14_res_0.5.npy') * 1000
+    CD1 = np.load(RES + 'fig14/LGD_fig14_res_0.05.npy') * 1000
+    CD2 = np.load(RES + 'fig14/LGD_fig14_res_0.1.npy') * 1000
+    CD3 = np.load(RES + 'fig14/LGD_fig14_res_0.2.npy') * 1000
+    CD4 = np.load(RES + 'fig14/LGD_fig14_res_0.5.npy') * 1000
 
     """D-LGF"""
     LLN_list = [LLN_Data.PREM, LLN_Data.PREMhard]
@@ -1317,9 +1321,9 @@ def fig14():
 
 def fig15():
     """(a)"""
-    shen = np.loadtxt('../temp/loadvcd.txt', skiprows=1, usecols=2)
-    green2 = np.load('../res/fig15/cluster_disk_0.2.npy') * 1000
-    green1 = np.load('../res/fig15/cluster_disk_0.1.npy') * 1000
+    shen = np.loadtxt(TEMP + 'loadvcd.txt', skiprows=1, usecols=2)
+    green2 = np.load(RES + 'fig15/cluster_disk_0.2.npy') * 1000
+    green1 = np.load(RES + 'fig15/cluster_disk_0.1.npy') * 1000
 
     res = 2
     lat, lon = GeoMathKit.global_equal_distance_grid(grid_size=res)
@@ -1418,26 +1422,26 @@ def save_data_to_repository():
     bsd.create_dataset(name='description', dtype=dt, data=['The unit is mm.'])
 
     '''spherical harmonic res'''
-    SH1 = np.load('../res/fig2/SH.npy')[0] * 1000
+    SH1 = np.load(RES + 'fig2/SH.npy')[0] * 1000
     bsd.create_dataset(name='Uplift_spherical_harmonic', data=SH1)
 
     '''Finite LGF'''
-    Green = np.load('../res/fig2/Green90.npy') * 1000
+    Green = np.load(RES + 'fig2/Green90.npy') * 1000
     Green = Green.reshape((90,180))
     bsd.create_dataset(name='Uplift_finite_LGF', data=Green)
 
     '''Infinite LGF'''
-    shen = np.loadtxt('../temp/loadvcd.txt', skiprows=1, usecols=2)
+    shen = np.loadtxt(TEMP + 'loadvcd.txt', skiprows=1, usecols=2)
     shen = shen.reshape((90, 180))
     bsd.create_dataset(name='Uplift_infinite_LGF', data=shen)
 
     '''D-LGF'''
-    d_LGF = np.load('../temp/100_dis_fast.npy') * 1000
+    d_LGF = np.load(TEMP + '100_dis_fast.npy') * 1000
     d_LGF = d_LGF.reshape((90, 180))
     bsd.create_dataset(name='Uplift_DLGF', data=d_LGF)
 
     '''CD-LGF'''
-    cd_LGF = np.load('../res/fig15/cluster_disk_0.1.npy') * 1000
+    cd_LGF = np.load(RES + 'fig15/cluster_disk_0.1.npy') * 1000
     cd_LGF = cd_LGF.reshape((90, 180))
     bsd.create_dataset(name='Uplift_CDLGF', data=cd_LGF)
 

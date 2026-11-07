@@ -86,7 +86,7 @@ class cluster_disk:
 
             pass
 
-        out_dir = FileTool.get_project_dir('res/LGD_template') if out_dir is None else Path(out_dir)
+        out_dir = FileTool.get_res_dir('LGD_template') if out_dir is None else Path(out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
         np.save(out_dir / template_name(postfix, variable), dis)
 
@@ -182,7 +182,7 @@ class cluster_disk_fast:
 
             pass
 
-        out_dir = FileTool.get_project_dir('res/LGD_template') if out_dir is None else Path(out_dir)
+        out_dir = FileTool.get_res_dir('LGD_template') if out_dir is None else Path(out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
         np.save(out_dir / template_name(postfix, variable), dis)
 
@@ -265,8 +265,8 @@ def demo1():
 
 
 def demo2():
-    a = np.load(FileTool.get_project_dir('res/LGD_template/LGD_0.npy'))
-    b = np.load(FileTool.get_project_dir('res/LGD_template/LGD_1.npy'))
+    a = np.load(FileTool.get_res_dir('LGD_template/LGD_0.npy'))
+    b = np.load(FileTool.get_res_dir('LGD_template/LGD_1.npy'))
     pass
 
 def demo3():

@@ -197,8 +197,8 @@ class DiskLoadTable:
     with X_n = h_n (Vertical), 1 + k_n (Geoheight) and, for the horizontal kernel, P_n replaced by
     n (cos psi P_n - P_{n-1}) / sin psi and X_n = l_n (identical to DiskLoad.getHorizental).
 
-    Distance grid: step r_min / 200 out to 10 r_max (disk interior and edge), min(0.0005 deg, r_min / 50) out to
-    max(3 deg, 30 r_max), 0.005 deg to 20 deg and 0.05 deg to 180 deg. Interpolation error against the direct
+    Distance grid: step min(0.001 deg, r_min / 200) out to 2 r_max (disk interior and edge), min(0.001, r_min / 100)
+    to 10 r_max, min(0.005, r_min / 50) to max(3 deg, 30 r_max), 0.005 deg to 20 deg and 0.05 deg to 180 deg. Interpolation error against the direct
     series (r = 0.056 deg, N = 13 000): below 1e-5 of the kernel peak. No far-field truncation is applied.
     Memory: (number of distances) x (number of radii) per variable, e.g. ~15 000 x 900 x 8 B = 110 MB for the
     distinct sub-cell radii of a global 0.1-deg partition.
@@ -226,9 +226,10 @@ class DiskLoadTable:
         self._sigma = (sigma * 0.5 * thickness * EarthConstant.rhow).T
 
         rmin, rmax = self.radii.min(), self.radii.max()
-        edge_end, near_end = 10 * rmax, max(3.0, 30 * rmax)
-        psi = np.concatenate([np.arange(0, edge_end, rmin / 200),
-                              np.arange(edge_end, near_end, min(5e-4, rmin / 50)), np.arange(near_end, 20, 5e-3),
+        edge_end, mid_end, near_end = 2 * rmax, 10 * rmax, max(3.0, 30 * rmax)
+        psi = np.concatenate([np.arange(0, edge_end, min(1e-3, rmin / 200)),
+                              np.arange(edge_end, mid_end, min(1e-3, rmin / 100)),
+                              np.arange(mid_end, near_end, min(5e-3, rmin / 50)), np.arange(near_end, 20, 5e-3),
                               np.arange(max(near_end, 20), 180, 5e-2), [180.0]])
         self.psi = np.unique(np.clip(psi, 1e-6, 180 - 1e-6))
         self._tables = {}

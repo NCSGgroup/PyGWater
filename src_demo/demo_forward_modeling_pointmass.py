@@ -5,7 +5,11 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 CODE_ROOT = HERE.parent
 sys.path.insert(0, str(CODE_ROOT))   # run from any folder: the src_* packages import from the code root
-os.chdir(HERE)                       # relative paths in this script ('../res', '../temp') refer to src_demo/
+os.chdir(HERE)
+
+from src_auxiliary.FileTool import FileTool
+RES = str(FileTool.get_res_dir()) + '/'     # <data root>/res/  (data root: PYGWATER_DATA)
+TEMP = str(FileTool.get_temp_dir()) + '/'   # <data root>/temp/
 
 
 import numpy as np
@@ -47,7 +51,7 @@ def demo_Green_genenral():
 
     # sn = np.array([lat.flatten(),lon.flatten(),mascon_data.flatten()])
     #
-    # np.savetxt('../temp/mascon.txt', sn.T)
+    # np.savetxt(TEMP + 'mascon.txt', sn.T)
 
     grids = Grids_generation.Equal_angular_distance(resolution=res)
 
@@ -62,7 +66,7 @@ def demo_Green_genenral():
 
     dist = gfa.evaluation(points=point, variable=Displacement.Vertical)
 
-    np.save('../temp/pointload_dist.npy', dist)
+    np.save(TEMP + 'pointload_dist.npy', dist)
 
     pass
 
@@ -95,7 +99,7 @@ def demo_Green_fast():
 
     # sn = np.array([lat.flatten(),lon.flatten(),mascon_data.flatten()])
     #
-    # np.savetxt('../temp/mascon.txt', sn.T)
+    # np.savetxt(TEMP + 'mascon.txt', sn.T)
 
     grids = Grids_generation.Equal_angular_distance(resolution=res)
 
@@ -110,7 +114,7 @@ def demo_Green_fast():
 
     dist = gfa.evaluation(points=point, variable=Displacement.Vertical, resolution=res)
 
-    np.save('../temp/pointload_dist_fast.npy', dist)
+    np.save(TEMP + 'pointload_dist_fast.npy', dist)
 
     pass
 

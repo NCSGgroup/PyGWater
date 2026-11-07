@@ -41,18 +41,24 @@ pip install -r installation/requirements.txt
 
 ## 2. External data
 
-The data are not in the repository. By default PyGWater reads them from `<code root>/data/`; set the environment
-variable `PYGWATER_DATA` to use another folder (cf. `PYGLDA_DATA` in PyGLDA v2):
+The data are kept outside the code, in a folder such as `PyGWater_external_data/` (cf. `PyGLDA_v2_external_data`
+for PyGLDA v2). Point PyGWater to it with the environment variable `PYGWATER_DATA` (if unset, `<code root>/data/`
+is used):
 
 ```bash
-export PYGWATER_DATA=/path/to/PyGWater_data
+export PYGWATER_DATA=/path/to/PyGWater_external_data      # e.g. in ~/.bashrc or the IDE run configuration
 ```
 
 ```
 <data root>/
-├── LLN/          load Love numbers and Green's functions
-└── land_mask/    land_mask_res0.1.h5 (only for removing ocean cells in src_LoadMesh)
+├── LLN/          inputs: load Love numbers and Green's functions
+├── land_mask/    inputs: land_mask_res0.1.h5 (only for removing ocean cells in src_LoadMesh)
+├── res/          written by PyGWater: CD-LGF templates, masks, shapefiles, results of the demos
+└── temp/         written by PyGWater: scratch files
 ```
+
+In code: `FileTool.get_data_dir()`, `FileTool.get_res_dir()`, `FileTool.get_temp_dir()`; the demos use the
+variables `RES` and `TEMP`.
 
 | File in `LLN/` | Content | Used by |
 |---|---|---|
@@ -63,8 +69,7 @@ export PYGWATER_DATA=/path/to/PyGWater_data
 
 These files are third-party data and are not covered by the PyGWater license; please cite their sources.
 
-Results written by PyGWater (Green's-function templates, masks, shapefiles) go to `<code root>/res/`; `temp/` is
-for scratch files. Both are ignored by git.
+If the default `<code root>/data/` is used, it is ignored by git (as are `res/` and `temp/` in the code root).
 
 ---
 
@@ -75,7 +80,7 @@ The packages are imported as `src_<name>` from the code root (e.g. `from src_Bas
 
 ```bash
 python src_demo/demo_slepian.py      # Slepian truncation error over a regional mask
-python -m pytest tests -q            # consistency tests (need the Love numbers)
+python -m pytest tests -q            # all tests; those needing the Love numbers are skipped if LLN/ is missing
 ```
 
 For your own scripts, either run them from the code root or add it to `PYTHONPATH`:

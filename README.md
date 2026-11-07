@@ -1,5 +1,7 @@
 # PyGWater
 
+[![tests](https://github.com/NCSGgroup/PyGWater/actions/workflows/tests.yml/badge.svg)](https://github.com/NCSGgroup/PyGWater/actions/workflows/tests.yml)
+
 **PyGWater** is an open-source, multi-basis toolbox for modelling the Earth's elastic response to surface loading
 and for estimating terrestrial water storage from geodetic deformation.
 
@@ -23,7 +25,9 @@ group.
 - Spherical-harmonic analysis with selectable schemes (Driscoll-Healy weights as in SaGEA, the quadrature of
   Yang et al. (2025), least squares, or automatic choice)
 - Evaluation on grids or at any points (GNSS stations, InSAR pixels), time series in one pass
-- Design matrices for inversion (Slepian functions, Green's-function kernels) and regional masks from shapefiles
+- Inversion of GNSS (and InSAR) displacements for water storage with any basis: GNSS time-series cleaning and
+  monthly means, regularised least squares, GCV / L-curve with a plausibility safeguard, resolution and covariance;
+  closed-loop and checkerboard tests; regional masks from shapefiles
 
 ## Repository structure
 
@@ -36,13 +40,17 @@ PyGWater/
 │   ├── GreenFunction/     #   Legendre polynomials, point-load and disk-load kernels, GFBasis.py
 │   └── Slepian/           #   Slepian functions: concentration problem, truncation
 ├── src_Forward/           # ForwardModel.py (any basis) and grid convolutions (point mass, disk, clustered disk)
+├── src_Inversion/         # regularised least squares, GCV / L-curve, resolution and covariance
+├── src_OBS/               # observations: GNSS time series (NGL .tenv3), synthetic networks, checkerboards
 ├── src_LoadMesh/          # regular grids, shapefiles and regional masks
 ├── src_demo/              # demonstration scripts; paper_JGR2025.py reproduces the figures of Yang et al. (2025)
 ├── tests/                 # consistency tests
 ├── doc/                   # installation guide and user guide
-├── installation/          # environment files
-├── data/                  # Love numbers and land mask (not distributed; or set PYGWATER_DATA)
-└── res/, temp/            # results and scratch files (written at run time, not tracked)
+└── installation/          # environment files
+
+PyGWater_external_data/    # outside the code, set PYGWATER_DATA (default: <code root>/data)
+├── LLN/, land_mask/       # inputs: Love numbers, land mask (not distributed)
+└── res/, temp/            # written at run time: results and scratch files
 ```
 
 ## Requirements
@@ -69,8 +77,9 @@ conda activate pygwater
 
 ### 3. Provide the data
 
-Put the load Love-number files in `data/LLN/`, or in any folder `<data root>/LLN/` with
-`export PYGWATER_DATA=<data root>`. The files and their sources are listed in
+Keep the data outside the code, e.g. `PyGWater_external_data/` with the Love numbers in `LLN/`, and set
+`export PYGWATER_DATA=/path/to/PyGWater_external_data` (default: `<code root>/data`). Results (`res/`) and scratch
+files (`temp/`) are written there too. The files and their sources are listed in
 [doc/installation.md](doc/installation.md).
 
 ## Usage

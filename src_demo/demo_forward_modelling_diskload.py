@@ -5,7 +5,11 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 CODE_ROOT = HERE.parent
 sys.path.insert(0, str(CODE_ROOT))   # run from any folder: the src_* packages import from the code root
-os.chdir(HERE)                       # relative paths in this script ('../res', '../temp') refer to src_demo/
+os.chdir(HERE)
+
+from src_auxiliary.FileTool import FileTool
+RES = str(FileTool.get_res_dir()) + '/'     # <data root>/res/  (data root: PYGWATER_DATA)
+TEMP = str(FileTool.get_temp_dir()) + '/'   # <data root>/temp/
 
 
 import pygmt
@@ -99,7 +103,7 @@ def demo2_Green():
 
     # sn = np.array([lat.flatten(),lon.flatten(),mascon_data.flatten()])
     #
-    # np.savetxt('../temp/mascon.txt', sn.T)
+    # np.savetxt(TEMP + 'mascon.txt', sn.T)
 
     rr = grid2radius(lat_center=lat, grid_size=res)
 
@@ -119,7 +123,7 @@ def demo2_Green():
 
     dist = gfa.evaluation(points=point, variable=Displacement.Vertical)
 
-    np.save('../temp/100_dis2.npy', dist)
+    np.save(TEMP + '100_dis2.npy', dist)
 
     pass
 
@@ -152,7 +156,7 @@ def demo2_Green_fast():
 
     # sn = np.array([lat.flatten(),lon.flatten(),mascon_data.flatten()])
     #
-    # np.savetxt('../temp/mascon.txt', sn.T)
+    # np.savetxt(TEMP + 'mascon.txt', sn.T)
 
     rr = grid2radius(lat_center=lat, grid_size=res)
 
@@ -172,7 +176,7 @@ def demo2_Green_fast():
 
     dist = gfa.evaluation(points=point, variable=Displacement.Vertical)
 
-    np.save('../temp/100_dis_fast.npy', dist)
+    np.save(TEMP + '100_dis_fast.npy', dist)
 
     pass
 
@@ -243,7 +247,7 @@ def demo3_SH():
 
     disp = disp.value * 1000  # convert to mm
 
-    np.save('../temp/sh2.npy', disp)
+    np.save(TEMP + 'sh2.npy', disp)
 
     pass
 
@@ -253,8 +257,8 @@ def compare_SH_Green():
 
     res = 2
     num = 181
-    sh = np.load('../temp/sh.npy').reshape((num, -1)).T
-    green = np.load('../temp/100_dis.npy') * 1000
+    sh = np.load(TEMP + 'sh.npy').reshape((num, -1)).T
+    green = np.load(TEMP + '100_dis.npy') * 1000
 
     index = 180
 
@@ -269,10 +273,10 @@ def compare_SH_Green():
     # vr = std_green
     # vr = std_sh
 
-    # ref = np.load('../temp/dis.npy')*1000
+    # ref = np.load(TEMP + 'dis.npy')*1000
     # vr = ref - green[:, 180]
     #
-    # sh2 = np.load('../temp/sh2.npy').flatten()
+    # sh2 = np.load(TEMP + 'sh2.npy').flatten()
     # vr = green[:, 180]
     # convert to mm
     lat, lon = GeoMathKit.global_equal_distance_grid(grid_size=res)
@@ -281,7 +285,7 @@ def compare_SH_Green():
 
     sn = np.array([lat.flatten(), lon.flatten(), vr.flatten()])
 
-    np.savetxt('../temp/GreenFunction.txt', sn.T)
+    np.savetxt(TEMP + 'GreenFunction.txt', sn.T)
 
     fig = pygmt.Figure()
     pygmt.config(MAP_HEADING_OFFSET=0, MAP_TITLE_OFFSET=0.1)
@@ -318,12 +322,12 @@ def compare_SH_Green():
 
 def compare_yang_shen():
     num = 181
-    sh = np.load('../temp/sh.npy').reshape((num, -1)).T
-    sh = np.load('../temp/sh2.npy')
-    # green = np.load('../temp/100_dis2.npy') * 1000
-    # green= np.load('../temp/100_dis_fast.npy') * 1000
-    green = np.load('../temp/cluster_disk.npy') * 1000
-    # green = np.load('../temp/pointload_dist_fast.npy') * 1000
+    sh = np.load(TEMP + 'sh.npy').reshape((num, -1)).T
+    sh = np.load(TEMP + 'sh2.npy')
+    # green = np.load(TEMP + '100_dis2.npy') * 1000
+    # green= np.load(TEMP + '100_dis_fast.npy') * 1000
+    green = np.load(TEMP + 'cluster_disk.npy') * 1000
+    # green = np.load(TEMP + 'pointload_dist_fast.npy') * 1000
 
     index = 180
 
@@ -337,7 +341,7 @@ def compare_yang_shen():
     green = green[:, 0]
     # sh = sh[:, index]
 
-    shen = np.loadtxt('../temp/loadvcd.txt', skiprows=1, usecols=2)
+    shen = np.loadtxt(TEMP + 'loadvcd.txt', skiprows=1, usecols=2)
 
     res = 2
     lat, lon = GeoMathKit.global_equal_distance_grid(grid_size=res)
@@ -430,8 +434,8 @@ def compare_yang_shen():
 
 def cal_SH_loss():
     from src_Basis.SphericalHarmonic.DataClass import GRID, Enums
-    shen = np.loadtxt('../temp/loadvcd.txt', skiprows=1, usecols=2)
-    # shen = np.load('../temp/100_dis2.npy') * 1000
+    shen = np.loadtxt(TEMP + 'loadvcd.txt', skiprows=1, usecols=2)
+    # shen = np.load(TEMP + '100_dis2.npy') * 1000
 
     res = 2
     lat, lon = GeoMathKit.global_equal_distance_grid(grid_size=res)

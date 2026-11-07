@@ -27,7 +27,7 @@
    - 6.7 [Common interface and ForwardModel](#67-common-interface-and-forwardmodel)
 7. [Choosing a basis function](#7-choosing-a-basis-function)
 8. [InSAR line of sight](#8-insar-line-of-sight)
-9. [Building blocks for inversion](#9-building-blocks-for-inversion)
+9. [Inversion](#9-inversion)
 10. [Regional masks](#10-regional-masks)
 11. [Physical constants](#11-physical-constants)
 12. [Tests and demos](#12-tests-and-demos)
@@ -339,7 +339,7 @@ per latitude row, saved, and reused by rolling along longitude on a regular grid
 from src_Forward.DiskCluster import cluster_disk, GFA_displacement_from_template
 cd = cluster_disk(lln2k)
 cd.configure(grid={'lat': 45.0, 'lon': 5.0, 'delta_lat': 2.0, 'delta_lon': 2.0}, small_disk=0.5)
-tpl = cd.template(points=stations, variable=Displacement.Vertical, postfix='demo', out_dir='res/LGD_template')
+tpl = cd.template(points=stations, variable=Displacement.Vertical, postfix='demo')   # -> <data root>/res/LGD_template
 ```
 
 | Class / method | Options |
@@ -410,7 +410,8 @@ x to any observable at any point: d = A x. All bases derive from `src_Basis.base
 `load_parameters` performs SH analysis (`method='auto'`, see 6.1) for the SH basis, SH analysis followed by projection
 onto the retained Slepian functions for the Slepian basis, and samples the grid at the cell centres for the
 Green's-function basis. `GreenFunctionBasis.load_synthesis` is piecewise constant (value of the containing cell,
-0 outside). For the disk kernel the Love numbers must satisfy Eq. 24, and gravity is not available (6.4).
+0 outside). The disk kernel is evaluated from a `DiskLoadTable` by default (`tabulate=True`, ~1e-5 of the peak;
+`tabulate=False` sums the series directly). For the disk kernel the Love numbers must satisfy Eq. 24, and gravity is not available (6.4).
 
 `src_Forward.ForwardModel` wraps any basis:
 
@@ -464,19 +465,74 @@ los = Observables.line_of_sight(east, north, up, look)                # positive
 
 ---
 
-## 9. Building blocks for inversion
+## 9. Inversion
 
-Forward models are linear, d = A x, and every basis provides A through the common interface (6.7):
+Forward models are linear, d = A x, and every basis provides A through the common interface (6.7).
+`src_Inversion` solves the regularised weighted least-squares problem
 
-- `ForwardModel(basis, lln).design_matrix(lat, lon, observables=(Vertical, North, East, 'LOS'), look=...)` stacks
-  multi-component data (GNSS three components, InSAR LOS, gravity) for one parameter vector.
-- Regional inversions typically use `SlepianBasis` (parameters: load Slepian coefficients) or `GreenFunctionBasis`
-  (parameters: mascon EWH); map estimates back with `basis.load_synthesis(x, lat, lon)`.
-- CD-LGF: `GreenFunctionBasis(..., kernel='cluster_disk', subgrid=0.1)` gives A directly at the stations; the
-  templates of `src_Forward/DiskCluster.py` are pre-computed columns of A on a fixed grid.
+    min_x  || W (A x - d) ||^2 + alpha x^T R x ,     W = diag(1 / sigma)
 
-A dedicated inversion module (regularisation, variance components, normal-equation export) is planned
-(`src_Inversion`).
+```python
+from src_Basis.GreenFunction.GFBasis import GreenFunctionBasis
+from src_Forward.ForwardModel import ForwardModel
+from src_Inversion.Solver import RegularizedLeastSquares
+from src_Inversion.Regularization import smoothness
+
+basis = GreenFunctionBasis.from_grid(lat, lon, 2.0, mask=domain, kernel='cluster_disk', subgrid=0.2)   # mascons
+A = ForwardModel(basis, lln13k).design_matrix(sta_lat, sta_lon, observables=(Displacement.Vertical,
+                                              Displacement.North, Displacement.East))                    # stacked U, N, E
+sigma = np.concatenate([np.full(n_sta, 2e-3), np.full(2 * n_sta, 0.7e-3)])                              # [m]
+solver = RegularizedLeastSquares(A, sigma, R=smoothness(basis.lat, basis.lon, 2.0))
+alpha, curve = solver.choose_alpha(d, method='gcv')          # 'gcv' | 'wgcv' (omega=...) | 'lcurve'
+sol = solver.solve(d, alpha)                                 # d: (N_obs,) or (ntime, N_obs): many epochs at once
+ewh = basis.load_synthesis(sol.x, grid_lat, grid_lon)        # EWH [m]
+Rm, Cx = solver.resolution_matrix(alpha), solver.covariance(alpha)
+```
+
+| Item | Options |
+|---|---|
+| `RegularizedLeastSquares(A, sigma, R=None)` | `sigma` scalar or per observation; `R` default identity. `alpha` is relative: the matrix used is alpha * trace(N)/trace(R) * R |
+| `.solve(d, alpha)` | returns `Solution(x, alpha, residual_norm, seminorm, dof, sigma0)` |
+| `.choose_alpha(d, alphas=None, method='gcv', omega=1.0)` | GCV (Golub et al., 1979), weighted GCV (Chung et al., 2008), L-curve corner (Hansen, 1992); default grid 1e-6 ... 1e2 |
+| `.resolution_matrix(alpha)`, `.covariance(alpha)` | (N + alpha R)^-1 N and the formal noise covariance |
+| `Regularization.identity(n)` | Slepian / SH coefficients |
+| `Regularization.smoothness(lat, lon, res)` | first differences between neighbouring cells (graph Laplacian), mascon bases |
+| `Regularization.area_weighted_identity(lat)` | mean-square EWH over the cells |
+
+`src_OBS/Synthetic.py` provides `synthetic_network` (Poisson-disk station positions inside a region), `add_noise`
+and `checkerboard` for closed-loop tests; `src_demo/demo_inversion_China.py` runs closed-loop and checkerboard
+tests over China for CD-LGF, point-mass and Slepian bases.
+
+GCV can under-regularise when the inversion basis does not match the data-generating physics (correlated modelling
+error), e.g. point masses inverting uniform-mascon data with three components at very low noise. Pass a physical
+plausibility test, which removes implausible candidates before the choice:
+
+```python
+plausible = lambda x: np.sqrt(np.mean(basis.load_synthesis(x, cell_lat, cell_lon) ** 2)) < 0.3   # EWH RMS < 30 cm
+alpha, curve = solver.choose_alpha(d, method='gcv', plausible=plausible)
+```
+
+### 9.1 GNSS time series (`src_OBS/GNSS.py`)
+
+```python
+from src_OBS.GNSS import read_tenv3, read_ngl_steps, GNSSNetwork
+net = GNSSNetwork([read_tenv3(f) for f in tenv3_files])          # NGL/UNR .tenv3
+net.clean(steps=read_ngl_steps('steps.txt'), remove='trend+steps', outlier=5.0).monthly()
+lat, lon, d, sigma, comps = net.epoch('2020-01')                 # stacked U, N, E [m], demeaned per station
+```
+
+| Function | Options |
+|---|---|
+| `read_tenv3(path)` | positions relative to the first epoch, formal sigmas, station lat/lon |
+| `read_ngl_steps(path)` | offsets per station (equipment and earthquake) |
+| `fit_trajectory(t, y, sig, steps, annual, semiannual, outlier=5.0)` | bias, rate, steps, annual, semi-annual; iterative 5 x MAD outlier rejection |
+| `GNSSNetwork.clean(steps, remove, outlier, min_span=2.0)` | `remove`: 'trend+steps' (keep seasonal + residual, default), 'trend+steps+seasonal', 'none' |
+| `.monthly(min_days=10)` | calendar-month means, sigma = max(scatter, formal) / sqrt(n) |
+| `.epoch(month, components, demean=True)` | data vector in the row order of `ForwardModel.design_matrix` |
+| `.common_mode()` | network median per month (not removed automatically: it contains regional loading) |
+
+Frame: NGL series are in IGS14/IGS20; compare with Love numbers in the CF frame (`LoveNumber.convert(Frame.CF)`).
+Variance-component estimation between vertical and horizontal observations is not implemented yet.
 
 ---
 
@@ -514,6 +570,8 @@ A dedicated inversion module (regularisation, variance components, normal-equati
 ```bash
 python -m pytest tests -q       # consistency tests (needs data/LLN)
 python src_demo/demo_slepian.py # Slepian truncation error over a regional mask
+python src_demo/demo_China_basis_comparison.py   # all bases over China, CSR mascon load (~10 min)
+python src_demo/demo_inversion_China.py           # closed-loop and checkerboard inversion tests (~2 min)
 ```
 
 `tests/test_basis.py` checks the common interface: point-wise SH basis against grid synthesis, Slepian (all
