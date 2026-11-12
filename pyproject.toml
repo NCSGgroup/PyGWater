@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pygwater"
+version = "0.9.0"
+description = "Elastic loading deformation (GNSS, geoid, gravity) from surface water loads: forward modelling and inversion with a choice of basis functions"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [{ name = "Fan Yang" }]
+dependencies = ["numpy>=1.24", "scipy>=1.10", "h5py>=3.8", "netCDF4>=1.6"]
+
+[project.optional-dependencies]
+mesh = ["geopandas>=0.13", "shapely>=2.0"]
+test = ["pytest>=7"]
+figures = ["pygmt"]
+
+[project.urls]
+Repository = "https://github.com/NCSGgroup/PyGWater"
+
+# the library code is the folder src/, imported as `pygwater`
+[tool.setuptools]
+package-dir = { "pygwater" = "src" }
+packages = ["pygwater", "pygwater.utils", "pygwater.earth", "pygwater.basis", "pygwater.basis.spherical_harmonic",
+            "pygwater.basis.green", "pygwater.forward", "pygwater.inversion", "pygwater.observations", "pygwater.preprocessing", "pygwater.mesh"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

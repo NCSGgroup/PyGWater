@@ -164,3 +164,20 @@ def test_slepian_svd_matches_eigh():
     k = int(round(a.shannon))
     assert np.allclose(a.beta[:k], b.beta[:k], atol=1e-10)
     assert np.allclose(a.G[:, :k] @ a.G[:, :k].T, b.G[:, :k] @ b.G[:, :k].T, atol=1e-8)
+
+
+def test_kernel_cache_follows_the_love_numbers():
+    """GreenFunctionBasis must not reuse kernels of another (or reconfigured) Love-number object"""
+    b = GreenFunctionBasis(np.array([45.0]), np.array([5.0]), 'disk', radius=0.2, resolution=0.4)
+    lln_a = LoveNumber().config(lmax=10000, method=LLN_Data.PREM).get_Love_number()
+    A1 = b.design_matrix(STA_LAT, STA_LON, lln_a)
+    lln_a.config(lmax=10000, method=LLN_Data.PREMhard).get_Love_number()     # same object, other Earth model
+    A2 = b.design_matrix(STA_LAT, STA_LON, lln_a)
+    assert not np.allclose(A1, A2)
+    ref = GreenFunctionBasis(np.array([45.0]), np.array([5.0]), 'disk', radius=0.2, resolution=0.4)
+    assert np.allclose(A2, ref.design_matrix(STA_LAT, STA_LON, lln_a))
+
+
+def test_love_number_limits_raise():
+    with pytest.raises(ValueError):
+        LoveNumber().config(lmax=20000, method=LLN_Data.Wang).get_Love_number()

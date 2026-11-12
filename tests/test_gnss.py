@@ -1,7 +1,9 @@
-"""Tests of src/observations/gnss.py on a synthetic NGL .tenv3 file (no external data needed)."""
+"""Tests of pygwater.preprocessing on a synthetic NGL .tenv3 file (no external data needed)."""
 import numpy as np
 
-from pygwater.observations.gnss import (read_tenv3, read_ngl_steps, fit_trajectory, GNSSNetwork, _decyear_to_month,
+from pygwater.preprocessing.network import GNSSNetwork
+from pygwater.preprocessing.trajectory import fit_trajectory
+from pygwater.preprocessing.series import (read_tenv3, read_ngl_steps, _decyear_to_month,
                           _yymmmdd_to_decyear)
 
 HEADER = ('site YYMMMDD yyyy.yyyy __MJD week d reflon _e0(m) __east(m) ____n0(m) _north(m) u0(m) ____up(m) '
@@ -53,3 +55,39 @@ def test_dates():
     assert _decyear_to_month(2020.0 + 30.5 / 366) == '2020-01'
     assert _decyear_to_month(2020.0 + 31.5 / 366) == '2020-02'
     assert abs(_yymmmdd_to_decyear('20JAN01') - (2020 + 0.5 / 366)) < 1e-9
+
+
+def test_clean_can_be_rerun(tmp_path):
+    f = tmp_path / 'TEST.tenv3'
+    write_tenv3(f)
+    s = read_tenv3(f)
+    net = GNSSNetwork([s])
+    once = net.clean().stations[0].xyz['U'].copy()
+    twice = net.clean().stations[0].xyz['U']
+    assert np.allclose(once, twice)                      # re-running starts from the series as read
+    full = net.clean(remove='none').stations[0].xyz['U']
+    assert np.std(full) > np.std(once)                   # ... so a different option gives a different result
+
+
+def test_epoch_common_reference_period(tmp_path):
+    import pytest
+    write_tenv3(tmp_path / 'A.tenv3', site='AAAA', seed=1)
+    write_tenv3(tmp_path / 'B.tenv3', site='BBBB', seed=2)
+    a, b = read_tenv3(tmp_path / 'A.tenv3'), read_tenv3(tmp_path / 'B.tenv3')
+    net = GNSSNetwork([a, b]).clean().monthly()
+    sb = net.stations[1]                                  # B: shift by 5 cm, and lose 2016-2017
+    keep = [i for i, k in enumerate(sb.monthly_t) if k >= '2018-01']
+    sb.monthly_t = [sb.monthly_t[i] for i in keep]
+    for c in sb.monthly_xyz:
+        sb.monthly_xyz[c] = sb.monthly_xyz[c][keep] + 0.05
+        sb.monthly_sig[c] = sb.monthly_sig[c][keep]
+    # default reference = months shared by all stations (2018-2020): both stations refer to the same period
+    lat, lon, d, sig, comps = net.epoch('2019-04', components=('U',))
+    assert d.shape == (2,) and abs(d[0] - d[1]) < 0.01
+    # an explicit reference period works the same way
+    _, _, d2, _, _ = net.epoch('2019-04', components=('U',), reference=('2018-01', '2020-12'))
+    assert np.allclose(d, d2)
+    # no shared month -> clear error instead of silently mixing reference periods
+    sb.monthly_t = ['2030-01']
+    with pytest.raises(ValueError):
+        net.epoch('2019-04', components=('U',))

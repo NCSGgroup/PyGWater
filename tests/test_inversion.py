@@ -44,3 +44,14 @@ def test_synthetic_network_and_checkerboard():
     c = checkerboard(np.array([1., 1., 5.]), np.array([1., 5., 1.]), 4.0, 0.1)
     assert c[0] == -c[1] and c[0] == -c[2] and abs(c[0]) == 0.1
     assert np.std(add_noise(np.zeros(20000), 2.0) - 0) > 1.9
+
+
+def test_choose_alpha_rejects_time_series():
+    import pytest
+    rng = np.random.default_rng(0)
+    A = rng.normal(size=(30, 10))
+    solver = RegularizedLeastSquares(A, 1.0)
+    with pytest.raises(ValueError):
+        solver.choose_alpha(rng.normal(size=(5, 30)))      # (ntime, N_obs): ambiguous for GCV
+    alpha, _ = solver.choose_alpha(rng.normal(size=30))
+    assert alpha > 0

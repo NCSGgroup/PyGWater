@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+message: "If you use PyGWater, please cite the software and the paper below."
+title: "PyGWater: a multi-basis toolbox for surface-loading deformation and GNSS inversion of terrestrial water storage"
+type: software
+version: 0.9.0
+date-released: 2026-11-07
+license: MIT
+repository-code: "https://github.com/NCSGgroup/PyGWater"
+authors:
+  - family-names: Yang
+    given-names: Fan
+    affiliation: "Geodesy Group, Aalborg University"
+    email: fany@plan.aau.dk
+preferred-citation:
+  type: article
+  title: "On the choice of basis functions for modeling Earth's elastic deformation due to surface loading"
+  authors:
+    - family-names: Yang
+      given-names: Fan
+    - family-names: Shen
+      given-names: Yi
+    - family-names: Zhang
+      given-names: Weihang
+    - family-names: Forootan
+      given-names: Ehsan
+  journal: "Journal of Geophysical Research: Solid Earth"
+  volume: 130
+  year: 2025
+  doi: "10.1029/2025JB031662"
+  identifiers:
+    - type: doi
+      value: "10.1029/2025JB031662"

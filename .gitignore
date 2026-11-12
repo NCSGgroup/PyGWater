@@ -37,3 +37,4 @@ installation/pygwater_paths.cfg
 
 # Logs
 *.log
+.coverage

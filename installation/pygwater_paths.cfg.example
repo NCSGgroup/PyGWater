@@ -1,0 +1,16 @@
+# PyGWater data root. Copy this file to pygwater_paths.cfg (same folder, installation/; ignored by git) and set
+# the path. ALL data PyGWater reads or writes live under this folder; nothing is written inside the code folder.
+# The environment variable PYGWATER_DATA, if set, takes precedence.
+#
+#   <data root>/input/    external sources, only read by PyGWater
+#       LLN/              load Love numbers and Green's functions
+#       land_mask/        land_mask_res0.1.h5
+#       mascon/           GRACE mascon NetCDF (a symbolic link is fine) and the 2-degree extract mascon.txt
+#       shp/              region outlines (China, NorthAmerica, ...)
+#       stations/         station lists and observations (e.g. fu2015_*_digitized.txt)
+#       reference/        solutions of other software for comparison (e.g. loadvcd.txt)
+#   <data root>/cache/    built by PyGWater, regenerable and reused: LGD_template*/, mask/, shp/ (generated grids)
+#   <data root>/output/   results, one folder per study (paper_JGR2025/, China_basis_comparison/, inversion_*/)
+#   <data root>/temp/     scratch, safe to delete
+
+data_root = /path/to/PyGWater_external_data

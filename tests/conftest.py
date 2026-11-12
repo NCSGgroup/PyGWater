@@ -17,7 +17,7 @@ except ImportError:
     sys.modules['pygwater'] = module
     spec.loader.exec_module(module)
 
-_NEEDS_LLN = ('test_consistency.py', 'test_basis.py')
+_NEEDS_LLN = ('test_consistency.py', 'test_basis.py', 'test_workflow.py')
 
 
 def pytest_collection_modifyitems(config, items):

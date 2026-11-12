@@ -518,27 +518,44 @@ plausible = lambda x: np.sqrt(np.mean(basis.load_synthesis(x, cell_lat, cell_lon
 alpha, curve = solver.choose_alpha(d, method='gcv', plausible=plausible)
 ```
 
-### 9.1 GNSS time series (`src/observations/gnss.py`)
+### 9.1 GNSS preprocessing (`pygwater.preprocessing`)
+
+From daily NGL series to a monthly data set, following the data selection of Schumacher et al. (2018):
 
 ```python
-from pygwater.observations.gnss import read_tenv3, read_ngl_steps, GNSSNetwork
-net = GNSSNetwork([read_tenv3(f) for f in tenv3_files])          # NGL/UNR .tenv3
-net.clean(steps=read_ngl_steps('steps.txt'), remove='trend+steps', outlier=5.0).monthly()
-lat, lon, d, sigma, comps = net.epoch('2020-01')                 # stacked U, N, E [m], demeaned per station
+from pygwater.preprocessing import GNSSNetwork, read_ngl_steps
+net = GNSSNetwork.from_files(tenv3_files).select(box=(41, 50, -125, -116))
+net.clean(steps=read_ngl_steps('steps.txt', as_events=True), min_years=4)   # offsets, trajectory, QC
+net.monthly().spatial_filter(radius_km=500)                                # monthly means, neighbour test
+ds = net.to_dataset(components=('U',), reference=('2006-01', '2015-12'))   # GNSSDataset
+net.save_qc('qc.csv')                                                      # why each station was kept or rejected
 ```
 
-| Function | Options |
+| Step | What it does |
 |---|---|
-| `read_tenv3(path)` | positions relative to the first epoch, formal sigmas, station lat/lon |
-| `read_ngl_steps(path)` | offsets per station (equipment and earthquake) |
-| `fit_trajectory(t, y, sig, steps, annual, semiannual, outlier=5.0)` | bias, rate, steps, annual, semi-annual; iterative 5 x MAD outlier rejection |
-| `GNSSNetwork.clean(steps, remove, outlier, min_span=2.0)` | `remove`: 'trend+steps' (keep seasonal + residual, default), 'trend+steps+seasonal', 'none' |
-| `.monthly(min_days=10)` | calendar-month means, sigma = max(scatter, formal) / sqrt(n) |
-| `.epoch(month, components, demean=True)` | data vector in the row order of `ForwardModel.design_matrix` |
-| `.common_mode()` | network median per month (not removed automatically: it contains regional loading) |
+| `ngl.select_stations`, `ngl.download_series` | stations of a region and period from the NGL catalogue; download (needs internet) |
+| `clean(...)` | known offsets (equipment, earthquakes; offsets < 14 days apart merged), detection of unreported offsets, trajectory model (bias, rate, offsets, optional seasonal and post-seismic terms), 5 x MAD outliers; stations rejected with < `min_years` x 365 daily solutions, low completeness or large residuals; segments shorter than 0.5 yr dropped; optional loading-model corrections (`corrections=`) |
+| `monthly(sigma='rms')` | calendar-month means; sigma from the residual scatter (Khan et al., 2016) or the standard error (`'sem'`) |
+| `spatial_filter(radius_km=500)` | rejects stations moving against their neighbours (e.g. poroelastic) or far from them |
+| `to_dataset(components, reference)` | monthly anomalies over a common reference period (default: the months shared by all stations) |
 
-Frame: NGL series are in IGS14/IGS20; compare with Love numbers in the CF frame (`LoveNumber.convert(Frame.CF)`).
-Variance-component estimation between vertical and horizontal observations is not implemented yet.
+Frame: NGL series are in IGS14/IGS20; use Love numbers in the CF frame (`LoveNumber.convert(Frame.CF)`).
+
+### 9.2 Monthly inversion and comparison with GRACE
+
+```python
+from pygwater.inversion.workflow import MonthlyInversion
+from pygwater.observations.grace import Mascon, compare
+inv = MonthlyInversion(basis, lln, ds, components=('U',), R=regularization.curvature(lat, lon, res))
+res = inv.run(inv.choose_alpha(method='gcv'))              # one alpha: median of the monthly GCV choices
+s = res.regional_series(glat, glon, inside)                # area-weighted mean EWH [m]; regional_mass() in Gt
+g = Mascon.read(path).anomalies(ds.reference)              # CSR mascons, same reference period
+stats = compare(res.months, s, g.months, g.regional_series(glat, glon, inside))   # r, RMS, NSE, amplitude ratio
+```
+
+The design matrix is computed once; months with the same stations share one decomposition, so a 15-year series
+takes seconds. Any basis works. The whole chain, with settings in one file, is `studies/GNSS_GRACE/`
+(`download.py` once, then `run.py`).
 
 ---
 

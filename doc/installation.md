@@ -67,6 +67,7 @@ The data root is organised by role:
 <data root>/
 ├── input/               external sources, only read by PyGWater
 │   ├── LLN/             load Love numbers and Green's functions
+│   ├── gnss/NGL/        DataHoldings.txt, steps.txt, tenv3/ (studies/GNSS_GRACE/download.py)
 │   ├── land_mask/       land_mask_res0.1.h5 (removing ocean cells in pygwater.mesh)
 │   ├── mascon/          GRACE mascon NetCDF (a symbolic link is fine) and its 2-degree extract mascon.txt
 │   ├── shp/             region outlines: China/, NorthAmerica/, ...
@@ -80,7 +81,8 @@ The data root is organised by role:
 │   ├── paper_JGR2025/   data of the figures of Yang et al. (2025): fig2/, fig8/, ..., BasisStudy/
 │   ├── China_basis_comparison/
 │   ├── inversion_China/
-│   └── inversion_PNW_Fu2015/
+│   ├── inversion_PNW_Fu2015/
+│   └── GNSS_GRACE/<region>/
 └── temp/                scratch, safe to delete
 ```
 
