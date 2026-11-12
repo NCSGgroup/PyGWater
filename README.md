@@ -33,24 +33,31 @@ group.
 
 ```
 PyGWater/
-├── src_auxiliary/         # constants, enums, geometry and math tools, file utilities
-├── src_EarthModel/        # Earth model: load Love numbers (LoveNumber.py, frames) and observables (Observables.py)
-├── src_Basis/             # basis functions, all behind one interface (base.py: design_matrix, predict, ...)
-│   ├── SphericalHarmonic/ #   SH analysis/synthesis (SaGEA-style), SHC/GRID data classes, SHBasis.py
-│   ├── GreenFunction/     #   Legendre polynomials, point-load and disk-load kernels, GFBasis.py
-│   └── Slepian/           #   Slepian functions: concentration problem, truncation
-├── src_Forward/           # ForwardModel.py (any basis) and grid convolutions (point mass, disk, clustered disk)
-├── src_Inversion/         # regularised least squares, GCV / L-curve, resolution and covariance
-├── src_OBS/               # observations: GNSS time series (NGL .tenv3), synthetic networks, checkerboards
-├── src_LoadMesh/          # regular grids, shapefiles and regional masks
-├── src_demo/              # demonstration scripts; paper_JGR2025.py reproduces the figures of Yang et al. (2025)
-├── tests/                 # consistency tests
-├── doc/                   # installation guide and user guide
-└── installation/          # environment files
+├── src/                     # the library, imported as `pygwater` (pip install -e .)
+│   ├── __init__.py          #   public API: pygwater.LoveNumber, GreenFunctionBasis, RegularizedLeastSquares, ...
+│   ├── config.py            #   data root (installation/pygwater_paths.cfg or PYGWATER_DATA)
+│   ├── earth/               #   load Love numbers, observables (displacement, geoid, gravity)
+│   ├── basis/               #   basis functions behind one interface (base.py: design_matrix, predict, ...)
+│   │   ├── spherical_harmonic/  # SH analysis/synthesis (SaGEA-style), SHC/GRID data classes, SH basis
+│   │   ├── green/           #     point-load and disk-load kernels; point mass, D-LGF, CD-LGF basis
+│   │   └── slepian.py       #     Slepian functions: concentration problem, truncation
+│   ├── forward/             #   forward model (any basis), grid convolutions (point mass, disk, clustered disk)
+│   ├── inversion/           #   regularised least squares, GCV / L-curve / discrepancy, resolution, covariance
+│   ├── observations/        #   GNSS time series (NGL .tenv3), synthetic networks, checkerboards
+│   ├── mesh/                #   regular grids, shapefiles and regional masks
+│   └── utils/               #   constants, enums, geometry and math tools
+├── examples/                # short scripts showing one feature each
+├── studies/                 # reproducible studies, one folder each: JGR2025_basis_functions, China, Fu2015_PNW
+├── tests/                   # consistency tests (pytest)
+├── doc/                     # installation guide and user guide
+├── installation/            # environment files; pygwater_paths.cfg (local data-root setting)
+└── pyproject.toml           # package definition
 
-PyGWater_external_data/    # outside the code, set PYGWATER_DATA (default: <code root>/data)
-├── LLN/, land_mask/       # inputs: Love numbers, land mask (not distributed)
-└── res/, temp/            # written at run time: results and scratch files
+PyGWater_external_data/      # the data root, outside the code
+├── input/                   # external sources: LLN/, land_mask/, mascon/, shp/, stations/, reference/
+├── cache/                   # built by PyGWater and reused: CD-LGF templates, masks
+├── output/                  # results, one folder per study
+└── temp/                    # scratch
 ```
 
 ## Requirements
@@ -68,33 +75,35 @@ git clone https://github.com/NCSGgroup/PyGWater.git
 cd PyGWater
 ```
 
-### 2. Install the Python environment
+### 2. Install the Python environment and PyGWater
 
 ```bash
 mamba env create -f installation/environment.yml      # or: pip install -r installation/requirements.txt
 conda activate pygwater
+pip install -e .                                       # makes `import pygwater` work everywhere (editable)
 ```
 
 ### 3. Provide the data
 
-Keep the data outside the code, e.g. `PyGWater_external_data/` with the Love numbers in `LLN/`, and set
-`export PYGWATER_DATA=/path/to/PyGWater_external_data` (default: `<code root>/data`). Results (`res/`) and scratch
-files (`temp/`) are written there too. The files and their sources are listed in
+All data live outside the code under one data root, e.g. `PyGWater_external_data/` with the Love numbers in
+`input/LLN/`. Set it in `installation/pygwater_paths.cfg` (copy `installation/pygwater_paths.cfg.example`) or with
+`export PYGWATER_DATA=/path/to/PyGWater_external_data`. Caches (`cache/`), results (`output/`) and scratch files
+(`temp/`) are written there too. The files and their sources are listed in
 [doc/installation.md](doc/installation.md).
 
 ## Usage
 
-The packages are imported as `src_<name>` from the code root (run from the root, or add it to `PYTHONPATH`; scripts in
-`src_demo/` and the tests do this themselves).
+After `pip install -e .`, PyGWater is imported as `pygwater` from any script or notebook; the main classes are at the
+top level (`import pygwater as pgw; pgw.GreenFunctionBasis`), everything else in the subpackages:
 
 ```python
 import numpy as np
-from src_EarthModel.LoveNumber import LoveNumber
-from src_Basis.SphericalHarmonic.DataClass import GRID
-from src_Basis.Slepian.Slepian import SlepianBasis
-from src_auxiliary.EnumClasses import LLN_Data, PhysicalDimensions, Displacement
-from src_auxiliary.GeoMathKit import GeoMathKit
-from src_EarthModel import Observables
+from pygwater.earth.love_numbers import LoveNumber
+from pygwater.basis.spherical_harmonic.data_class import GRID
+from pygwater.basis.slepian import SlepianBasis
+from pygwater.utils.enums import LLN_Data, PhysicalDimensions, Displacement
+from pygwater.utils.geomath import GeoMathKit
+from pygwater.earth import observables as Observables
 
 # a 10 cm water load on a global 2-degree grid
 res = 2.0
@@ -121,10 +130,10 @@ sb = SlepianBasis(30).configure(mask=mask, lat=la2, lon=lo2, resolution=0.5).tru
 lln30 = LoveNumber().config(lmax=30, method=LLN_Data.PREM).get_Love_number()
 A = sb.design_matrix(np.array([45.0, 52.0]), np.array([5.0, 10.0]), lln30, variable=Displacement.Vertical)
 
-# the same forward model with any basis (common interface of src_Basis)
-from src_Basis.SphericalHarmonic.SHBasis import SphericalHarmonicBasis
-from src_Basis.GreenFunction.GFBasis import GreenFunctionBasis
-from src_Forward.ForwardModel import ForwardModel
+# the same forward model with any basis (common interface of pygwater.basis)
+from pygwater.basis.spherical_harmonic.sh_basis import SphericalHarmonicBasis
+from pygwater.basis.green.gf_basis import GreenFunctionBasis
+from pygwater.forward.model import ForwardModel
 
 sta_lat, sta_lon = np.array([44.0, 47.5]), np.array([3.0, 6.5])          # e.g. GNSS stations
 for basis in (SphericalHarmonicBasis(90), GreenFunctionBasis.from_grid(lat, lon, res, mask=ewh > 0)):
@@ -136,7 +145,7 @@ for basis in (SphericalHarmonicBasis(90), GreenFunctionBasis.from_grid(lat, lon,
 Demonstrations and tests:
 
 ```bash
-python src_demo/demo_slepian.py       # Slepian truncation error over a regional mask
+python examples/slepian_truncation.py       # Slepian truncation error over a regional mask
 python -m pytest tests -q             # consistency between basis functions, frames, schemes and observables
 ```
 

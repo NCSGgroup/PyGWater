@@ -1,7 +1,7 @@
-"""Tests of src_OBS/GNSS.py on a synthetic NGL .tenv3 file (no external data needed)."""
+"""Tests of src/observations/gnss.py on a synthetic NGL .tenv3 file (no external data needed)."""
 import numpy as np
 
-from src_OBS.GNSS import (read_tenv3, read_ngl_steps, fit_trajectory, GNSSNetwork, _decyear_to_month,
+from pygwater.observations.gnss import (read_tenv3, read_ngl_steps, fit_trajectory, GNSSNetwork, _decyear_to_month,
                           _yymmmdd_to_decyear)
 
 HEADER = ('site YYMMMDD yyyy.yyyy __MJD week d reflon _e0(m) __east(m) ____n0(m) _north(m) u0(m) ____up(m) '

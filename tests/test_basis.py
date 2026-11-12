@@ -1,20 +1,20 @@
 """
-Tests of the common Basis interface (src_Basis/base.py) and the basis-independent ForwardModel.
+Tests of the common Basis interface (src/basis/base.py) and the basis-independent ForwardModel.
 """
 import numpy as np
 import pytest
 
-from src_auxiliary.EnumClasses import LLN_Data, Displacement
-from src_auxiliary.GeoMathKit import GeoMathKit
-from src_auxiliary.constants import EarthConstant
-from src_EarthModel.LoveNumber import LoveNumber
-from src_EarthModel import Observables
-from src_Basis.base import Basis
-from src_Basis.SphericalHarmonic.SHBasis import SphericalHarmonicBasis
-from src_Basis.Slepian.Slepian import SlepianBasis
-from src_Basis.GreenFunction.GFBasis import GreenFunctionBasis
-from src_Forward.ForwardModel import ForwardModel
-from src_Forward import PointMass, Disk
+from pygwater.utils.enums import LLN_Data, Displacement
+from pygwater.utils.geomath import GeoMathKit
+from pygwater.utils.constants import EarthConstant
+from pygwater.earth.love_numbers import LoveNumber
+from pygwater.earth import observables as Observables
+from pygwater.basis.base import Basis
+from pygwater.basis.spherical_harmonic.sh_basis import SphericalHarmonicBasis
+from pygwater.basis.slepian import SlepianBasis
+from pygwater.basis.green.gf_basis import GreenFunctionBasis
+from pygwater.forward.model import ForwardModel
+from pygwater.forward import point_mass as PointMass, disk as Disk
 
 RES = 2.0
 LMAX = 90
@@ -126,9 +126,9 @@ def test_los_and_load_synthesis(lln, load):
 
 @pytest.mark.filterwarnings("ignore::UserWarning")
 def test_cluster_disk_basis_equals_templates(tmp_path):
-    """CD-LGF basis (tabulated kernels, any points) == direct sum of sub-disks in src_Forward/DiskCluster.py"""
-    from src_Forward.DiskCluster import cluster_disk
-    from src_Basis.GreenFunction.DiskLoad import DiskLoad, DiskLoadTable
+    """CD-LGF basis (tabulated kernels, any points) == direct sum of sub-disks in src/forward/disk_cluster.py"""
+    from pygwater.forward.disk_cluster import cluster_disk
+    from pygwater.basis.green.disk_load import DiskLoad, DiskLoadTable
     lln = LoveNumber().config(lmax=3000, method=LLN_Data.PREM).get_Love_number()
 
     psi = np.r_[np.linspace(0, 0.5, 400)[1:], np.linspace(0.5, 180, 400)]
@@ -151,3 +151,16 @@ def test_cluster_disk_basis_equals_templates(tmp_path):
         assert np.abs(A - ref).max() < 5e-5 * np.abs(ref).max()
     with pytest.raises(NotImplementedError):
         gf.design_matrix(pts['lat'], pts['lon'], lln, Displacement.Gravity)
+
+
+def test_slepian_svd_matches_eigh():
+    import numpy as np
+    from pygwater.basis.slepian import SlepianBasis
+    lat1 = np.arange(30.25, 50, 0.5); lon1 = np.arange(80.25, 100, 0.5)
+    lo, la = np.meshgrid(lon1, lat1)
+    m = ((la - 40) ** 2 + (lo - 90) ** 2 < 49).astype(float)
+    a = SlepianBasis(30).configure(m, la, lo, 0.5, method='eigh')
+    b = SlepianBasis(30).configure(m, la, lo, 0.5, method='svd')
+    k = int(round(a.shannon))
+    assert np.allclose(a.beta[:k], b.beta[:k], atol=1e-10)
+    assert np.allclose(a.G[:, :k] @ a.G[:, :k].T, b.G[:, :k] @ b.G[:, :k].T, atol=1e-8)

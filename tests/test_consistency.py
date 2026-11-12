@@ -1,19 +1,19 @@
 """
 Consistency tests for PyGWater (run from the project root:  python -m pytest tests -q).
-They need data/LLN/PREM-LLNs-complete.dat.
+They need <data root>/input/LLN/PREM-LLNs-complete.dat.
 """
 import warnings
 
 import numpy as np
 import pytest
 
-from src_auxiliary.constants import EarthConstant
-from src_auxiliary.EnumClasses import LLN_Data, LLN_variable, Frame
-from src_auxiliary.GeoMathKit import GeoMathKit
-from src_EarthModel.LoveNumber import LoveNumber
-from src_Basis.GreenFunction.PointLoad import LGF_truncation, LGF_Kummer
-from src_Basis.GreenFunction.DiskLoad import DiskLoad
-from src_Basis.SphericalHarmonic.Harmonic import Harmonic
+from pygwater.utils.constants import EarthConstant
+from pygwater.utils.enums import LLN_Data, LLN_variable, Frame
+from pygwater.utils.geomath import GeoMathKit
+from pygwater.earth.love_numbers import LoveNumber
+from pygwater.basis.green.point_load import LGF_truncation, LGF_Kummer
+from pygwater.basis.green.disk_load import DiskLoad
+from pygwater.basis.spherical_harmonic.harmonic import Harmonic
 
 
 def test_constants_consistent():
@@ -88,7 +88,7 @@ def test_harmonic_nyquist_and_least_squares():
 
 def test_slepian_cap_and_equivalence():
     """Shannon number of a polar cap, orthonormality, and exact equivalence with SH when Lc = (L+1)^2 (Eq. 30)."""
-    from src_Basis.Slepian.Slepian import SlepianBasis
+    from pygwater.basis.slepian import SlepianBasis
     L, res, cap = 15, 0.5, 30.
     lat, lon = GeoMathKit.global_equal_distance_grid(res)
     lon, lat = np.meshgrid(lon, lat)
@@ -135,9 +135,9 @@ def _ring(lat0, lon0, dist_deg, n=8):
 
 def test_north_east_projection_point_and_disk():
     """North/East from LGF and D-LGF: constant magnitude on a ring, pointing towards the load, |u_h| = |v|."""
-    from src_auxiliary.EnumClasses import Displacement
-    from src_Forward.Disk import GFA_displacement as DiskFM
-    from src_Forward.PointMass import GFA_displacement as PointFM
+    from pygwater.utils.enums import Displacement
+    from pygwater.forward.disk import GFA_displacement as DiskFM
+    from pygwater.forward.point_mass import GFA_displacement as PointFM
     lln = LoveNumber().config(lmax=2000, method=LLN_Data.PREM).get_Love_number()
     lat0, lon0 = 45., 10.
     plat, plon = _ring(lat0, lon0, 5.)
@@ -159,10 +159,10 @@ def test_north_east_projection_point_and_disk():
 
 def test_slepian_all_variables_equal_sh():
     """With Lc = (L+1)^2 Slepian = SH for Vertical, Geoheight, North and East (Harmonic gradient synthesis)."""
-    from src_auxiliary.EnumClasses import Displacement
-    from src_Basis.Slepian.Slepian import SlepianBasis
-    import src_auxiliary.EnumClasses as Enums
-    from src_Basis.SphericalHarmonic.DataClass import SHC
+    from pygwater.utils.enums import Displacement
+    from pygwater.basis.slepian import SlepianBasis
+    import pygwater.utils.enums as Enums
+    from pygwater.basis.spherical_harmonic.data_class import SHC
     L, res = 20, 5.
     lat, lon = GeoMathKit.global_equal_distance_grid(res)
     lon2, lat2 = np.meshgrid(lon, lat)
@@ -183,8 +183,8 @@ def test_slepian_all_variables_equal_sh():
 
 def test_gravity_kernel_vs_wang2012_table():
     """Kummer surface-gravity Green's function reproduces Wang et al. (2012) PREM-LGFs.dat (g2 column)."""
-    from src_auxiliary.FileTool import FileTool
-    f = FileTool.get_data_dir('LLN/PREM-LGFs.dat')
+    from pygwater.config import FileTool
+    f = FileTool.get_input_dir('LLN/PREM-LGFs.dat')
     if not f.exists():
         pytest.skip('PREM-LGFs.dat not available')
     T = np.loadtxt(f, skiprows=1)
@@ -197,10 +197,10 @@ def test_gravity_kernel_vs_wang2012_table():
 
 
 def test_observables_sh_slepian_gravity_and_los():
-    from src_auxiliary.EnumClasses import Displacement
-    from src_EarthModel import Observables
-    from src_Basis.Slepian.Slepian import SlepianBasis
-    from src_Basis.SphericalHarmonic.DataClass import SHC
+    from pygwater.utils.enums import Displacement
+    from pygwater.earth import observables as Observables
+    from pygwater.basis.slepian import SlepianBasis
+    from pygwater.basis.spherical_harmonic.data_class import SHC
     L, res = 20, 5.
     lat, lon = GeoMathKit.global_equal_distance_grid(res)
     lon2, lat2 = np.meshgrid(lon, lat)
@@ -218,7 +218,7 @@ def test_observables_sh_slepian_gravity_and_los():
         assert np.allclose(out, ref, rtol=1e-10, atol=1e-16), (var, kw)
 
     '''above - below = 4 pi G rho_w * EWH (band-limited)'''
-    from src_Basis.SphericalHarmonic.Harmonic import Harmonic
+    from pygwater.basis.spherical_harmonic.harmonic import Harmonic
     ewh = Harmonic(lat, lon, L, option=1).synthesis(c, s)
     d = (shc.synthesis_observable(res, Displacement.Gravity, lln=lln, newtonian='above').value
          - shc.synthesis_observable(res, Displacement.Gravity, lln=lln, newtonian='below').value)

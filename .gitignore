@@ -23,10 +23,9 @@ env/
 .DS_Store
 Thumbs.db
 
-# Project-specific: external data (see doc/installation.md), results and scratch
-/data/
-/res/
-/temp/
+# Project-specific: no data in the code folder; all data live under the data root (doc/installation.md).
+# Only the local setting of that root is kept here, untracked.
+installation/pygwater_paths.cfg
 
 # Large data files
 *.nc

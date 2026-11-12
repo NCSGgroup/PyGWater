@@ -1,10 +1,10 @@
-"""Tests of src_Inversion (solver, regularisation) and src_OBS (synthetic observations)."""
+"""Tests of pygwater.inversion (solver, regularisation) and pygwater.observations (synthetic observations)."""
 import numpy as np
 
-from src_auxiliary.GeoMathKit import GeoMathKit
-from src_Inversion.Solver import RegularizedLeastSquares
-from src_Inversion.Regularization import difference_operator, smoothness, identity
-from src_OBS.Synthetic import synthetic_network, checkerboard, add_noise
+from pygwater.utils.geomath import GeoMathKit
+from pygwater.inversion.solver import RegularizedLeastSquares
+from pygwater.inversion.regularization import difference_operator, smoothness, identity
+from pygwater.observations.synthetic import synthetic_network, checkerboard, add_noise
 
 
 def test_solver_recovers_overdetermined_problem():
